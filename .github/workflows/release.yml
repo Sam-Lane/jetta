@@ -174,10 +174,50 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Update Homebrew tap
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean --skip=build,archives,changelog
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          
+          # Download and calculate SHA256 for macOS AMD64
+          URL_AMD64="https://github.com/Sam-Lane/jetta/releases/download/v${VERSION}/jetta_${VERSION}_darwin_amd64.tar.gz"
+          curl -sL "${URL_AMD64}" -o /tmp/jetta_darwin_amd64.tar.gz
+          SHA256_AMD64=$(shasum -a 256 /tmp/jetta_darwin_amd64.tar.gz | awk '{print $1}')
+          
+          # Download and calculate SHA256 for macOS ARM64
+          URL_ARM64="https://github.com/Sam-Lane/jetta/releases/download/v${VERSION}/jetta_${VERSION}_darwin_arm64.tar.gz"
+          curl -sL "${URL_ARM64}" -o /tmp/jetta_darwin_arm64.tar.gz
+          SHA256_ARM64=$(shasum -a 256 /tmp/jetta_darwin_arm64.tar.gz | awk '{print $1}')
+          
+          # Clone homebrew-tap repository
+          git clone https://github.com/Sam-Lane/homebrew-tap /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+          
+          # Create cask file
+          cat > Casks/jetta.rb <<EOF
+          cask "jetta" do
+            version "${VERSION}"
+            
+            if Hardware::CPU.intel?
+              url "${URL_AMD64}"
+              sha256 "${SHA256_AMD64}"
+            else
+              url "${URL_ARM64}"
+              sha256 "${SHA256_ARM64}"
+            end
+            
+            name "jetta"
+            desc "Fast JWT CLI tool for decoding and inspecting JSON Web Tokens"
+            homepage "https://github.com/Sam-Lane/jetta"
+            
+            binary "jetta_#{version}_darwin_#{Hardware::CPU.arch}/jetta"
+          end
+          EOF
+          
+          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/jetta.rb
+          git commit -m "chore: update jetta cask to v${VERSION}"
+          git push
