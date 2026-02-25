@@ -1,3 +1,4 @@
+mod animation;
 mod decode;
 mod output;
 mod types;
@@ -6,7 +7,7 @@ mod validate;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use types::OutputFormat;
 
@@ -14,16 +15,20 @@ use types::OutputFormat;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
+    /// Skip the welcome animation in interactive mode
+    #[arg(long, global = true)]
+    no_animation: bool,
+
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
 enum Commands {
     /// Decode a JWT without validating the signature
     Decode {
-        /// JWT token string (optional, reads from stdin if not provided)
-        token: Option<String>,
+        /// JWT token string (use '-' to read from stdin)
+        token: String,
 
         /// Read token from file
         #[arg(short = 'f', long)]
@@ -36,8 +41,8 @@ enum Commands {
 
     /// Validate a JWT signature and decode it
     Validate {
-        /// JWT token string (optional, reads from stdin if not provided)
-        token: Option<String>,
+        /// JWT token string (use '-' to read from stdin)
+        token: String,
 
         /// Read token from file
         #[arg(short = 'f', long)]
@@ -82,11 +87,11 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Decode {
+        Some(Commands::Decode {
             token,
             file,
             format,
-        } => {
+        }) => {
             let token_str = read_token_input(token, file)?;
             let decoded = decode::decode_token(&token_str).context("Failed to decode JWT token")?;
 
@@ -94,14 +99,14 @@ fn main() -> Result<()> {
             println!("{}", output);
         }
 
-        Commands::Validate {
+        Some(Commands::Validate {
             token,
             file,
             secret,
             secret_file,
             public_key,
             format,
-        } => {
+        }) => {
             let token_str = read_token_input(token, file)?;
 
             // Determine the validation key/secret
@@ -129,27 +134,76 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
         }
+
+        None => {
+            // Interactive mode - show animation and prompt for token
+            run_interactive_mode(cli.no_animation)?;
+        }
     }
 
     Ok(())
 }
 
-/// Read token input from argument, file, or stdin
-fn read_token_input(token: Option<String>, file: Option<PathBuf>) -> Result<String> {
-    if let Some(token_str) = token {
-        Ok(token_str.trim().to_string())
-    } else if let Some(file_path) = file {
+/// Read token input from argument, file, or stdin (via '-')
+fn read_token_input(token: String, file: Option<PathBuf>) -> Result<String> {
+    if let Some(file_path) = file {
+        // File takes precedence - read from file
         fs::read_to_string(&file_path)
             .context(format!("Failed to read token from file: {:?}", file_path))
             .map(|s| s.trim().to_string())
-    } else {
-        // Read from stdin
+    } else if token == "-" {
+        // Explicit stdin via "-"
         let mut buffer = String::new();
         io::stdin()
             .read_to_string(&mut buffer)
             .context("Failed to read token from stdin")?;
-        Ok(buffer.trim().to_string())
+
+        let trimmed = buffer.trim();
+        if trimmed.is_empty() {
+            anyhow::bail!("No token provided from stdin");
+        }
+
+        Ok(trimmed.to_string())
+    } else {
+        // Use provided token string
+        Ok(token.trim().to_string())
     }
+}
+
+/// Run interactive mode with animation and prompt
+fn run_interactive_mode(no_animation: bool) -> Result<()> {
+    // Show animation unless --no-animation flag is set
+    if !no_animation {
+        animation::show_welcome_animation()?;
+        println!(); // Add blank line after animation
+    }
+
+    // Display prompt
+    print!("Enter JWT token: ");
+    io::stdout().flush()?;
+
+    // Read token from stdin
+    let mut token_input = String::new();
+    io::stdin()
+        .read_line(&mut token_input)
+        .context("Failed to read token from stdin")?;
+
+    let token_str = token_input.trim();
+
+    // Handle empty input
+    if token_str.is_empty() {
+        eprintln!("No token provided");
+        std::process::exit(1);
+    }
+
+    // Decode the token
+    let decoded = decode::decode_token(token_str).context("Failed to decode JWT token")?;
+
+    // Display the result in human-readable format
+    let output = output::format_decoded_token(&decoded, OutputFormat::HumanReadable)?;
+    println!("\n{}", output);
+
+    Ok(())
 }
 
 #[cfg(test)]
