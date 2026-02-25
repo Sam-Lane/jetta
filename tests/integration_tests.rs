@@ -1,6 +1,8 @@
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
+use std::io::Write;
 use std::process::Command;
+use tempfile::NamedTempFile;
 
 const SAMPLE_TOKEN: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
 const SAMPLE_SECRET: &str = "your-256-bit-secret";
@@ -129,3 +131,60 @@ fn test_validate_help() {
 // 1. cargo build --release
 // 2. echo "eyJhbGci..." | ./target/release/jetta --no-animation
 // 3. ./target/release/jetta (without --no-animation to see animation)
+
+#[test]
+fn test_decode_requires_token() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("decode")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "required arguments were not provided",
+        ))
+        .stderr(predicate::str::contains("<TOKEN>"));
+}
+
+#[test]
+fn test_validate_requires_token() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("validate")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "required arguments were not provided",
+        ))
+        .stderr(predicate::str::contains("<TOKEN>"));
+}
+
+#[test]
+fn test_decode_explicit_stdin() {
+    use assert_cmd::Command;
+
+    let mut cmd = Command::cargo_bin("jetta").unwrap();
+    cmd.arg("decode")
+        .arg("-")
+        .write_stdin(SAMPLE_TOKEN)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("JWT Header"))
+        .stdout(predicate::str::contains("HS256"))
+        .stdout(predicate::str::contains("John Doe"));
+}
+
+#[test]
+fn test_file_takes_precedence() {
+    // Create a temporary file with a token
+    let mut temp_file = NamedTempFile::new().unwrap();
+    writeln!(temp_file, "{}", SAMPLE_TOKEN).unwrap();
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("decode")
+        .arg("ignored-token-argument") // This should be ignored
+        .arg("--file")
+        .arg(temp_file.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("JWT Header"))
+        .stdout(predicate::str::contains("HS256"))
+        .stdout(predicate::str::contains("John Doe"));
+}
