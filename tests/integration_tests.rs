@@ -158,10 +158,8 @@ fn test_validate_requires_token() {
 
 #[test]
 fn test_decode_explicit_stdin() {
-    use assert_cmd::Command;
-
-    let mut cmd = Command::cargo_bin("jetta").unwrap();
-    cmd.arg("decode")
+    assert_cmd::Command::new(assert_cmd::cargo::cargo_bin!("jetta"))
+        .arg("decode")
         .arg("-")
         .write_stdin(SAMPLE_TOKEN)
         .assert()
