@@ -109,7 +109,7 @@ jobs:
           mkdir -p "dist/${ARCHIVE_NAME}"
           BIN="target/${{ matrix.target }}/release/jetta${EXT}"
           cp "${BIN}" "dist/${ARCHIVE_NAME}/"
-          cp LICENSE README.md "dist/${ARCHIVE_NAME}/"
+          cp README.md "dist/${ARCHIVE_NAME}/"
 
           cd dist
           if [ "${ARCHIVE_EXT}" = "tar.gz" ]; then

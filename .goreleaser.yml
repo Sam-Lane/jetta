@@ -29,7 +29,6 @@ archives:
           - zip
     name_template: "jetta_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
-      - LICENSE
       - README.md
 
 checksum:
