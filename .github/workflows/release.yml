@@ -175,7 +175,7 @@ jobs:
 
       - name: Update Homebrew tap
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
@@ -191,7 +191,7 @@ jobs:
           SHA256_ARM64=$(shasum -a 256 /tmp/jetta_darwin_arm64.tar.gz | awk '{print $1}')
           
           # Clone homebrew-tap repository with authentication
-          git clone https://x-access-token:${GH_TOKEN}@github.com/Sam-Lane/homebrew-tap /tmp/homebrew-tap
+          git clone https://x-access-token:${HOMEBREW_TAP_PAT}@github.com/Sam-Lane/homebrew-tap /tmp/homebrew-tap
           cd /tmp/homebrew-tap
           
           # Create Formula directory if it doesn't exist
