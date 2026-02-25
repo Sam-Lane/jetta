@@ -16,7 +16,22 @@ A fast, secure JWT (JSON Web Token) CLI tool for decoding and validating tokens.
 
 ## Installation
 
-### Pre-built Binaries (Recommended)
+### Homebrew (macOS and Linux)
+
+The easiest way to install Jetta on macOS or Linux is via Homebrew:
+
+```bash
+# Add the tap
+brew tap sam-lane/tap
+
+# Install Jetta
+brew install jetta
+
+# Upgrade to the latest version
+brew upgrade jetta
+```
+
+### Pre-built Binaries
 
 Download the latest release for your platform from the [releases page](https://github.com/Sam-Lane/jetta/releases).
 
@@ -25,10 +40,14 @@ Available platforms:
 - macOS (Intel, Apple Silicon)
 - Windows (x86_64)
 
+**Note**: Starting with v1.0.0, binary artifacts follow the naming convention:
+- `jetta_{version}_{os}_{arch}.tar.gz` (e.g., `jetta_1.0.0_linux_amd64.tar.gz`)
+- `jetta_{version}_{os}_{arch}.zip` for Windows
+
 ```bash
-# Example: Install on Linux/macOS
-curl -LO https://github.com/Sam-Lane/jetta/releases/latest/download/jetta-x86_64-unknown-linux-gnu.tar.gz
-tar -xzf jetta-x86_64-unknown-linux-gnu.tar.gz
+# Example: Install on Linux/macOS (v1.0.0+)
+curl -LO https://github.com/Sam-Lane/jetta/releases/latest/download/jetta_1.0.0_linux_amd64.tar.gz
+tar -xzf jetta_1.0.0_linux_amd64.tar.gz
 sudo mv jetta /usr/local/bin/
 ```
 
@@ -399,17 +418,19 @@ Contributions welcome! Please open an issue or PR.
 
 ### Release Process
 
-Releases are automated via GitHub Actions:
+Releases are automated via GitHub Actions and GoReleaser:
 
 1. Update `CHANGELOG.md` with changes for the new version
 2. Update version in `Cargo.toml`
-3. Commit changes: `git commit -am "Release v0.2.0"`
-4. Create and push a tag: `git tag v0.2.0 && git push origin v0.2.0`
-5. GitHub Actions will automatically:
-   - Build binaries for all platforms
+3. Run quality checks: `cargo fmt --all && cargo clippy --all-targets --all-features -- -D warnings && cargo test`
+4. Commit changes: `git commit -am "chore: release v1.0.0"`
+5. Create and push a tag: `git tag v1.0.0 && git push origin v1.0.0`
+6. GitHub Actions will automatically:
+   - Build binaries for all platforms using GoReleaser
    - Generate SHA256 checksums
    - Create a GitHub release with assets
    - Extract release notes from CHANGELOG.md
+   - Update the Homebrew tap with the new cask version
 
 ### CI/CD
 
@@ -418,9 +439,11 @@ This project uses GitHub Actions for continuous integration and releases:
 - **CI Workflow** (`ci.yml`): Runs on every push and PR
   - Tests on Linux, macOS, and Windows
   - Checks code formatting with rustfmt
-  - Lints code with clippy
+  - Lints code with clippy (warnings treated as errors with `-D warnings`)
   
 - **Release Workflow** (`release.yml`): Runs on version tags
-  - Builds optimized binaries for 5 platforms
+  - Uses GoReleaser with native Rust builder
+  - Builds optimized binaries for 5 platforms via cargo-zigbuild
   - Generates checksums for verification
   - Creates GitHub releases automatically
+  - Updates Homebrew tap (sam-lane/tap) with new cask

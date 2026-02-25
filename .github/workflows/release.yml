@@ -9,49 +9,34 @@ permissions:
   contents: write
 
 jobs:
-  create-release:
-    name: Create Release
+  release:
+    name: Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Create GitHub release
-        uses: taiki-e/create-gh-release-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-  upload-assets:
-    name: Upload Assets
-    needs: create-release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Linux x86_64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          # Linux ARM64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-          # macOS Intel
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          # macOS ARM (Apple Silicon)
-          - os: macos-latest
-            target: aarch64-apple-darwin
-          # Windows x86_64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Upload binary
-        uses: taiki-e/upload-rust-binary-action@v1
+      - name: Install Zig
+        uses: goto-bus-stop/setup-zig@v2
         with:
-          bin: jetta
-          target: ${{ matrix.target }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          checksum: sha256
+          version: 0.11.0
+
+      - name: Install cargo-zigbuild
+        run: cargo install --locked cargo-zigbuild
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

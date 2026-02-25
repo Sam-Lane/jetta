@@ -1,0 +1,75 @@
+# GoReleaser configuration for Jetta
+# Documentation: https://goreleaser.com
+
+version: 2
+
+builds:
+  - id: jetta
+    # Use native Rust builder
+    builder: rust
+    
+    # Binary name
+    binary: jetta
+    
+    # Targets to build (Rust target triple format)
+    targets:
+      - x86_64-unknown-linux-gnu
+      - aarch64-unknown-linux-gnu
+      - x86_64-apple-darwin
+      - aarch64-apple-darwin
+      - x86_64-pc-windows-gnu
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "jetta_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'typo'
+
+release:
+  github:
+    owner: Sam-Lane
+    name: jetta
+  draft: false
+  prerelease: auto
+  name_template: "v{{ .Version }}"
+
+homebrew_casks:
+  - name: jetta
+    
+    # Repository to push the cask to
+    repository:
+      owner: Sam-Lane
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    
+    # Directory inside the repository (default: Casks)
+    directory: Casks
+    
+    # Cask metadata
+    homepage: https://github.com/Sam-Lane/jetta
+    description: "Fast JWT CLI tool for decoding and inspecting JSON Web Tokens"
+    
+    # Commit message template
+    commit_msg_template: "chore: update jetta cask to {{ .Tag }}"
