@@ -424,7 +424,3 @@ This project uses GitHub Actions for continuous integration and releases:
   - Builds optimized binaries for 5 platforms
   - Generates checksums for verification
   - Creates GitHub releases automatically
-
-## Security
-
-If you discover a security vulnerability, please email security@example.com instead of using the issue tracker.
