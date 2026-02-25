@@ -1,14 +1,14 @@
-use assert_cmd::Command;
+use assert_cmd::prelude::*;
 use predicates::prelude::*;
+use std::process::Command;
 
 const SAMPLE_TOKEN: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
 const SAMPLE_SECRET: &str = "your-256-bit-secret";
 
 #[test]
 fn test_decode_command() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("decode")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("decode")
         .arg(SAMPLE_TOKEN)
         .assert()
         .success()
@@ -19,9 +19,8 @@ fn test_decode_command() {
 
 #[test]
 fn test_decode_json_output() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("decode")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("decode")
         .arg("--format")
         .arg("json")
         .arg(SAMPLE_TOKEN)
@@ -33,9 +32,8 @@ fn test_decode_json_output() {
 
 #[test]
 fn test_decode_malformed_token() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("decode")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("decode")
         .arg("invalid.token")
         .assert()
         .failure()
@@ -44,9 +42,8 @@ fn test_decode_malformed_token() {
 
 #[test]
 fn test_validate_correct_secret() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("validate")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("validate")
         .arg("--secret")
         .arg(SAMPLE_SECRET)
         .arg(SAMPLE_TOKEN)
@@ -57,9 +54,8 @@ fn test_validate_correct_secret() {
 
 #[test]
 fn test_validate_wrong_secret() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("validate")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("validate")
         .arg("--secret")
         .arg("wrong-secret")
         .arg(SAMPLE_TOKEN)
@@ -71,9 +67,8 @@ fn test_validate_wrong_secret() {
 
 #[test]
 fn test_validate_json_output() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("validate")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("validate")
         .arg("--secret")
         .arg(SAMPLE_SECRET)
         .arg("--format")
@@ -86,9 +81,8 @@ fn test_validate_json_output() {
 
 #[test]
 fn test_validate_no_secret_provided() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("validate")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("validate")
         .arg(SAMPLE_TOKEN)
         .assert()
         .failure()
@@ -97,9 +91,8 @@ fn test_validate_no_secret_provided() {
 
 #[test]
 fn test_help_command() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("--help")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("--help")
         .assert()
         .success()
         .stdout(predicate::str::contains("Jetta"))
@@ -109,9 +102,8 @@ fn test_help_command() {
 
 #[test]
 fn test_decode_help() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("decode")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("decode")
         .arg("--help")
         .assert()
         .success()
@@ -122,9 +114,8 @@ fn test_decode_help() {
 
 #[test]
 fn test_validate_help() {
-    Command::cargo_bin("jetta")
-        .unwrap()
-        .arg("validate")
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("validate")
         .arg("--help")
         .assert()
         .success()

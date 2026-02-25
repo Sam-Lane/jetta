@@ -1,5 +1,8 @@
 # Jetta
 
+[![CI](https://github.com/yourusername/jetta/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/jetta/actions/workflows/ci.yml)
+[![Release](https://github.com/yourusername/jetta/actions/workflows/release.yml/badge.svg)](https://github.com/yourusername/jetta/actions/workflows/release.yml)
+
 A fast, secure JWT (JSON Web Token) CLI tool for decoding and validating tokens. Think jwt.io but for your command line.
 
 ## Features
@@ -12,6 +15,24 @@ A fast, secure JWT (JSON Web Token) CLI tool for decoding and validating tokens.
 - **Multiple key sources**: Direct input, file, or environment variable
 
 ## Installation
+
+### Pre-built Binaries (Recommended)
+
+Download the latest release for your platform from the [releases page](https://github.com/yourusername/jetta/releases).
+
+Available platforms:
+- Linux (x86_64, ARM64)
+- macOS (Intel, Apple Silicon)
+- Windows (x86_64)
+
+```bash
+# Example: Install on Linux/macOS
+curl -LO https://github.com/yourusername/jetta/releases/latest/download/jetta-x86_64-unknown-linux-gnu.tar.gz
+tar -xzf jetta-x86_64-unknown-linux-gnu.tar.gz
+sudo mv jetta /usr/local/bin/
+```
+
+Each release includes SHA256 checksums for verification.
 
 ### From Source
 
@@ -295,6 +316,34 @@ MIT License - see LICENSE file for details
 ## Contributing
 
 Contributions welcome! Please open an issue or PR.
+
+### Release Process
+
+Releases are automated via GitHub Actions:
+
+1. Update `CHANGELOG.md` with changes for the new version
+2. Update version in `Cargo.toml`
+3. Commit changes: `git commit -am "Release v0.2.0"`
+4. Create and push a tag: `git tag v0.2.0 && git push origin v0.2.0`
+5. GitHub Actions will automatically:
+   - Build binaries for all platforms
+   - Generate SHA256 checksums
+   - Create a GitHub release with assets
+   - Extract release notes from CHANGELOG.md
+
+### CI/CD
+
+This project uses GitHub Actions for continuous integration and releases:
+
+- **CI Workflow** (`ci.yml`): Runs on every push and PR
+  - Tests on Linux, macOS, and Windows
+  - Checks code formatting with rustfmt
+  - Lints code with clippy
+  
+- **Release Workflow** (`release.yml`): Runs on version tags
+  - Builds optimized binaries for 5 platforms
+  - Generates checksums for verification
+  - Creates GitHub releases automatically
 
 ## Security
 
