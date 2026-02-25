@@ -37,7 +37,3 @@ pub enum OutputFormat {
     HumanReadable,
     Json,
 }
-
-/// Type aliases for backwards compatibility
-pub type JwtHeader = Value;
-pub type JwtPayload = Value;
