@@ -1,7 +1,7 @@
 # Jetta
 
-[![CI](https://github.com/yourusername/jetta/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/jetta/actions/workflows/ci.yml)
-[![Release](https://github.com/yourusername/jetta/actions/workflows/release.yml/badge.svg)](https://github.com/yourusername/jetta/actions/workflows/release.yml)
+[![CI](https://github.com/Sam-Lane/jetta/actions/workflows/ci.yml/badge.svg)](https://github.com/Sam-Lane/jetta/actions/workflows/ci.yml)
+[![Release](https://github.com/Sam-Lane/jetta/actions/workflows/release.yml/badge.svg)](https://github.com/Sam-Lane/jetta/actions/workflows/release.yml)
 
 A fast, secure JWT (JSON Web Token) CLI tool for decoding and validating tokens. Think jwt.io but for your command line.
 
@@ -18,7 +18,7 @@ A fast, secure JWT (JSON Web Token) CLI tool for decoding and validating tokens.
 
 ### Pre-built Binaries (Recommended)
 
-Download the latest release for your platform from the [releases page](https://github.com/yourusername/jetta/releases).
+Download the latest release for your platform from the [releases page](https://github.com/Sam-Lane/jetta/releases).
 
 Available platforms:
 - Linux (x86_64, ARM64)
@@ -27,7 +27,7 @@ Available platforms:
 
 ```bash
 # Example: Install on Linux/macOS
-curl -LO https://github.com/yourusername/jetta/releases/latest/download/jetta-x86_64-unknown-linux-gnu.tar.gz
+curl -LO https://github.com/Sam-Lane/jetta/releases/latest/download/jetta-x86_64-unknown-linux-gnu.tar.gz
 tar -xzf jetta-x86_64-unknown-linux-gnu.tar.gz
 sudo mv jetta /usr/local/bin/
 ```
@@ -37,7 +37,7 @@ Each release includes SHA256 checksums for verification.
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/jetta.git
+git clone https://github.com/Sam-Lane/jetta.git
 cd jetta
 cargo install --path .
 ```
