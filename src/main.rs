@@ -27,8 +27,8 @@ struct Cli {
 enum Commands {
     /// Decode a JWT without validating the signature
     Decode {
-        /// JWT token string (optional, reads from stdin if not provided)
-        token: Option<String>,
+        /// JWT token string (use '-' to read from stdin)
+        token: String,
 
         /// Read token from file
         #[arg(short = 'f', long)]
@@ -41,8 +41,8 @@ enum Commands {
 
     /// Validate a JWT signature and decode it
     Validate {
-        /// JWT token string (optional, reads from stdin if not provided)
-        token: Option<String>,
+        /// JWT token string (use '-' to read from stdin)
+        token: String,
 
         /// Read token from file
         #[arg(short = 'f', long)]
@@ -144,21 +144,29 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Read token input from argument, file, or stdin
-fn read_token_input(token: Option<String>, file: Option<PathBuf>) -> Result<String> {
-    if let Some(token_str) = token {
-        Ok(token_str.trim().to_string())
-    } else if let Some(file_path) = file {
+/// Read token input from argument, file, or stdin (via '-')
+fn read_token_input(token: String, file: Option<PathBuf>) -> Result<String> {
+    if let Some(file_path) = file {
+        // File takes precedence - read from file
         fs::read_to_string(&file_path)
             .context(format!("Failed to read token from file: {:?}", file_path))
             .map(|s| s.trim().to_string())
-    } else {
-        // Read from stdin
+    } else if token == "-" {
+        // Explicit stdin via "-"
         let mut buffer = String::new();
         io::stdin()
             .read_to_string(&mut buffer)
             .context("Failed to read token from stdin")?;
-        Ok(buffer.trim().to_string())
+
+        let trimmed = buffer.trim();
+        if trimmed.is_empty() {
+            anyhow::bail!("No token provided from stdin");
+        }
+
+        Ok(trimmed.to_string())
+    } else {
+        // Use provided token string
+        Ok(token.trim().to_string())
     }
 }
 
