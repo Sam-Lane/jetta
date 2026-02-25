@@ -78,9 +78,9 @@ jetta decode eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 # Decode from file
 jetta decode --file token.txt
 
-# Decode from stdin
-cat token.txt | jetta decode
-echo $TOKEN | jetta decode
+# Decode from stdin (use '-' for explicit stdin)
+cat token.txt | jetta decode -
+echo $TOKEN | jetta decode -
 
 # JSON output for scripting
 jetta decode --format json $TOKEN | jq '.payload.sub'
@@ -129,11 +129,14 @@ The animation morphs from base64 JWT through colorful random characters to a com
 Decode a JWT token without validating the signature. Useful for inspecting token contents.
 
 ```bash
-jetta decode [OPTIONS] [TOKEN]
+jetta decode <TOKEN> [OPTIONS]
 ```
 
+**Arguments:**
+- `<TOKEN>` - JWT token string (required, use `-` to read from stdin)
+
 **Options:**
-- `-f, --file <FILE>` - Read token from file
+- `-f, --file <FILE>` - Read token from file (takes precedence over TOKEN argument)
 - `-o, --format <FORMAT>` - Output format: `human` (default) or `json`
 
 **Examples:**
@@ -146,6 +149,10 @@ jetta decode --format json $TOKEN
 
 # Decode from file
 jetta decode --file my-token.txt
+
+# Decode from stdin
+echo $TOKEN | jetta decode -
+cat my-token.txt | jetta decode -
 ```
 
 #### `validate` - Validate signature
@@ -153,14 +160,18 @@ jetta decode --file my-token.txt
 Validate a JWT signature and decode it. Exits with code 1 if validation fails.
 
 ```bash
-jetta validate [OPTIONS] [TOKEN]
+jetta validate <TOKEN> [OPTIONS]
 ```
+
+**Arguments:**
+- `<TOKEN>` - JWT token string (required, use `-` to read from stdin)
 
 **Options:**
 - `-s, --secret <SECRET>` - Secret key for HMAC algorithms
 - `--secret-file <FILE>` - Read secret from file
 - `-k, --public-key <FILE>` - Public key file in PEM format (for RSA/ECDSA/EdDSA)
 - `-o, --format <FORMAT>` - Output format: `human` (default) or `json`
+- `-f, --file <FILE>` - Read token from file (takes precedence over TOKEN argument)
 
 **Examples:**
 ```bash
@@ -176,6 +187,9 @@ jetta validate $TOKEN
 
 # JSON output
 jetta validate --secret "my-secret" --format json $TOKEN
+
+# Validate from stdin
+echo $TOKEN | jetta validate --secret "my-secret" -
 ```
 
 ## Algorithm Support
@@ -279,6 +293,35 @@ while read -r token; do
     jetta decode "$token"
 done < tokens.txt
 ```
+
+## Common Errors
+
+### "required arguments were not provided: <TOKEN>"
+
+This error occurs when you run `jetta decode` or `jetta validate` without providing a token.
+
+**Solutions:**
+- Provide a token as an argument: `jetta decode <your-token>`
+- Use `-` to read from stdin: `echo $TOKEN | jetta decode -`
+- Use `--file` to read from a file: `jetta decode --file token.txt`
+- For interactive use, just run `jetta` without any command
+
+### "No token provided from stdin"
+
+This occurs when using `-` for stdin but no input is provided.
+
+**Solutions:**
+- Ensure you're piping data: `echo $TOKEN | jetta decode -`
+- Or use a file instead: `jetta decode --file token.txt`
+
+### "Malformed JWT"
+
+The provided token is not a valid JWT format (must be three base64 parts separated by dots).
+
+**Solutions:**
+- Verify the token is complete and properly copied
+- Check for extra whitespace or newlines
+- Ensure it follows the format: `header.payload.signature`
 
 ### Create a token checker script
 
