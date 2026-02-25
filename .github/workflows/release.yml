@@ -190,34 +190,44 @@ jobs:
           curl -sL "${URL_ARM64}" -o /tmp/jetta_darwin_arm64.tar.gz
           SHA256_ARM64=$(shasum -a 256 /tmp/jetta_darwin_arm64.tar.gz | awk '{print $1}')
           
-          # Clone homebrew-tap repository
-          git clone https://github.com/Sam-Lane/homebrew-tap /tmp/homebrew-tap
+          # Clone homebrew-tap repository with authentication
+          git clone https://x-access-token:${GH_TOKEN}@github.com/Sam-Lane/homebrew-tap /tmp/homebrew-tap
           cd /tmp/homebrew-tap
           
-          # Create cask file
-          cat > Casks/jetta.rb <<EOF
-          cask "jetta" do
-            version "${VERSION}"
-            
-            if Hardware::CPU.intel?
-              url "${URL_AMD64}"
-              sha256 "${SHA256_AMD64}"
-            else
-              url "${URL_ARM64}"
-              sha256 "${SHA256_ARM64}"
-            end
-            
-            name "jetta"
+          # Create Formula directory if it doesn't exist
+          mkdir -p Formula
+
+          # Create formula file with direct variable substitution
+          cat > Formula/jetta.rb << EOFORMULA
+          class Jetta < Formula
             desc "Fast JWT CLI tool for decoding and inspecting JSON Web Tokens"
             homepage "https://github.com/Sam-Lane/jetta"
-            
-            binary "jetta_#{version}_darwin_#{Hardware::CPU.arch}/jetta"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.intel?
+                url "${URL_AMD64}"
+                sha256 "${SHA256_AMD64}"
+              else
+                url "${URL_ARM64}"
+                sha256 "${SHA256_ARM64}"
+              end
+            end
+
+            def install
+              bin.install "jetta"
+            end
+
+            test do
+              assert_match "Usage:", shell_output("\#{bin}/jetta --help")
+            end
           end
-          EOF
+          EOFORMULA
           
           # Commit and push
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/jetta.rb
-          git commit -m "chore: update jetta cask to v${VERSION}"
+          git add Formula/jetta.rb
+          git commit -m "chore: update jetta formula to v${VERSION}"
           git push
