@@ -123,3 +123,9 @@ fn test_validate_help() {
         .stdout(predicate::str::contains("--secret"))
         .stdout(predicate::str::contains("--public-key"));
 }
+
+// Note: Interactive mode tests with stdin are complex with assert_cmd
+// Manual testing recommended:
+// 1. cargo build --release
+// 2. echo "eyJhbGci..." | ./target/release/jetta --no-animation
+// 3. ./target/release/jetta (without --no-animation to see animation)

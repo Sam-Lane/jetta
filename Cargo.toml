@@ -19,6 +19,10 @@ anyhow = "1.0"
 
 # Terminal colors
 colored = "2.1"
+crossterm = "0.28"
+
+# Random number generation for animation
+rand = "0.8"
 
 # Time handling for timestamps
 chrono = "0.4"

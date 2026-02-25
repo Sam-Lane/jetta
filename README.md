@@ -50,6 +50,25 @@ cargo install jetta
 
 ## Quick Start
 
+### Interactive Mode (New!)
+
+Run `jetta` without any arguments to enter interactive mode with a cool animation:
+
+```bash
+jetta
+```
+
+This will:
+1. Show an animated transformation from base64 JWT → random characters → JSON
+2. Prompt you to paste a JWT token
+3. Decode the token and display the results
+
+Skip the animation with `--no-animation`:
+
+```bash
+jetta --no-animation
+```
+
 ### Decode a JWT
 
 ```bash
@@ -85,6 +104,23 @@ jetta validate $TOKEN
 ```
 
 ## Usage
+
+### Interactive Mode
+
+Simply run `jetta` with no commands to enter interactive mode:
+
+```bash
+# With animation
+jetta
+
+# Skip animation
+jetta --no-animation
+
+# Pipe from stdin (skips prompt)
+echo $TOKEN | jetta --no-animation
+```
+
+The animation morphs from base64 JWT through colorful random characters to a compact JSON representation of the decoded token.
 
 ### Commands
 
@@ -290,6 +326,7 @@ src/
 ├── decode.rs     # JWT decoding logic
 ├── validate.rs   # Signature validation
 ├── output.rs     # Output formatting (human/JSON)
+├── animation.rs  # Welcome animation logic
 └── types.rs      # Shared data structures
 ```
 
