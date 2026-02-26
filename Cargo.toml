@@ -28,6 +28,9 @@ rand = "0.8"
 chrono = "0.4"
 base64 = "0.22.1"
 
+# Table formatting
+tabled = "0.16"
+
 [profile.release]
 lto = true
 codegen-units = 1

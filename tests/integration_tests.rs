@@ -186,3 +186,56 @@ fn test_file_takes_precedence() {
         .stdout(predicate::str::contains("HS256"))
         .stdout(predicate::str::contains("John Doe"));
 }
+
+#[test]
+fn test_decode_table_output() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("decode")
+        .arg("--format")
+        .arg("table")
+        .arg(SAMPLE_TOKEN)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Header"))
+        .stdout(predicate::str::contains("Payload"))
+        .stdout(predicate::str::contains("Signature"))
+        .stdout(predicate::str::contains("HS256"))
+        .stdout(predicate::str::contains("John Doe"))
+        .stdout(predicate::str::contains("┌")) // Unicode box-drawing
+        .stdout(predicate::str::contains("│"))
+        .stdout(predicate::str::contains("└"));
+}
+
+#[test]
+fn test_validate_table_output() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("validate")
+        .arg("--secret")
+        .arg(SAMPLE_SECRET)
+        .arg("--format")
+        .arg("table")
+        .arg(SAMPLE_TOKEN)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Validation"))
+        .stdout(predicate::str::contains("VALID"))
+        .stdout(predicate::str::contains("Header"))
+        .stdout(predicate::str::contains("Payload"))
+        .stdout(predicate::str::contains("┌"))
+        .stdout(predicate::str::contains("│"))
+        .stdout(predicate::str::contains("└"));
+}
+
+#[test]
+fn test_table_format_short_flag() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("decode")
+        .arg("-o")
+        .arg("table")
+        .arg(SAMPLE_TOKEN)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Header"))
+        .stdout(predicate::str::contains("Payload"))
+        .stdout(predicate::str::contains("┌"));
+}
