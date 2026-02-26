@@ -68,12 +68,20 @@ enum Commands {
 
     /// Encode and sign a new JWT token
     Encode {
-        /// Payload JSON file (required)
-        #[arg(short = 'p', long)]
-        payload_file: PathBuf,
+        /// Inline payload JSON string
+        #[arg(short = 'p', long, conflicts_with = "payload_file")]
+        payload: Option<String>,
+
+        /// Payload JSON file
+        #[arg(long, conflicts_with = "payload")]
+        payload_file: Option<PathBuf>,
+
+        /// Inline header JSON string (optional, defaults will be generated)
+        #[arg(long, conflicts_with = "header_file")]
+        header: Option<String>,
 
         /// Custom header JSON file (optional, defaults will be generated)
-        #[arg(long)]
+        #[arg(long, conflicts_with = "header")]
         header_file: Option<PathBuf>,
 
         /// Secret key for HMAC algorithms (HS256, HS384, HS512)
@@ -171,7 +179,9 @@ fn main() -> Result<()> {
         }
 
         Some(Commands::Encode {
+            payload,
             payload_file,
+            header,
             header_file,
             secret,
             secret_file,
@@ -179,19 +189,32 @@ fn main() -> Result<()> {
             algorithm,
             format,
         }) => {
-            // Read payload from file
-            let payload_content = fs::read_to_string(&payload_file)
-                .context(format!("Failed to read payload file: {:?}", payload_file))?;
-            let payload: serde_json::Value =
-                serde_json::from_str(&payload_content).context("Failed to parse payload JSON")?;
+            // Parse payload from inline string or file (at least one required)
+            let payload_value: serde_json::Value = if let Some(payload_str) = payload {
+                serde_json::from_str(&payload_str).context(
+                    "Failed to parse payload JSON. Ensure valid JSON format with double quotes.",
+                )?
+            } else if let Some(payload_path) = payload_file {
+                let payload_content = fs::read_to_string(&payload_path)
+                    .context(format!("Failed to read payload file: {:?}", payload_path))?;
+                serde_json::from_str(&payload_content).context(
+                    "Failed to parse payload JSON. Ensure valid JSON format with double quotes.",
+                )?
+            } else {
+                anyhow::bail!("Payload required: provide --payload or --payload-file");
+            };
 
-            // Read optional header from file
-            let header = if let Some(header_path) = header_file {
+            // Parse optional header from inline string or file
+            let header_value: Option<serde_json::Value> = if let Some(header_str) = header {
+                Some(serde_json::from_str(&header_str).context(
+                    "Failed to parse header JSON. Ensure valid JSON format with double quotes.",
+                )?)
+            } else if let Some(header_path) = header_file {
                 let header_content = fs::read_to_string(&header_path)
                     .context(format!("Failed to read header file: {:?}", header_path))?;
-                let h: serde_json::Value =
-                    serde_json::from_str(&header_content).context("Failed to parse header JSON")?;
-                Some(h)
+                Some(serde_json::from_str(&header_content).context(
+                    "Failed to parse header JSON. Ensure valid JSON format with double quotes.",
+                )?)
             } else {
                 None
             };
@@ -225,8 +248,8 @@ fn main() -> Result<()> {
 
             // Encode the token
             let token = encode::encode_token(
-                header.as_ref(),
-                &payload,
+                header_value.as_ref(),
+                &payload_value,
                 secret_val.as_deref(),
                 key_val.as_deref(),
                 alg,

@@ -439,3 +439,204 @@ fn test_encode_from_secret_file() {
         .assert()
         .success();
 }
+
+// ========== Inline Argument Tests ==========
+
+#[test]
+fn test_encode_inline_payload() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("encode")
+        .arg("-p")
+        .arg(r#"{"sub":"user123","name":"Alice"}"#)
+        .arg("--secret")
+        .arg("test-secret")
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_encode_inline_payload_and_header() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("encode")
+        .arg("--payload")
+        .arg(r#"{"sub":"user123"}"#)
+        .arg("--header")
+        .arg(r#"{"kid":"key-123"}"#)
+        .arg("--secret")
+        .arg("test-secret")
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_encode_inline_payload_short_flag() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    let output = cmd
+        .arg("encode")
+        .arg("-p")
+        .arg(r#"{"sub":"test-user"}"#)
+        .arg("-s")
+        .arg("my-secret")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let token = String::from_utf8(output.stdout).unwrap();
+    assert!(token.trim().contains('.'));
+}
+
+#[test]
+fn test_encode_inline_payload_with_header_file() {
+    let mut header_file = NamedTempFile::new().unwrap();
+    writeln!(header_file, r#"{{"kid": "file-key-id"}}"#).unwrap();
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("encode")
+        .arg("-p")
+        .arg(r#"{"sub":"mixed-mode"}"#)
+        .arg("--header-file")
+        .arg(header_file.path())
+        .arg("--secret")
+        .arg("mixed-secret")
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_encode_payload_file_with_inline_header() {
+    let mut payload_file = NamedTempFile::new().unwrap();
+    writeln!(payload_file, r#"{{"sub": "file-payload"}}"#).unwrap();
+
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("encode")
+        .arg("--payload-file")
+        .arg(payload_file.path())
+        .arg("--header")
+        .arg(r#"{"kid":"inline-key"}"#)
+        .arg("--secret")
+        .arg("mixed-secret")
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_encode_no_payload_provided() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("encode")
+        .arg("--secret")
+        .arg("test-secret")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Payload required"));
+}
+
+#[test]
+fn test_encode_invalid_inline_payload_json() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("encode")
+        .arg("-p")
+        .arg(r#"{sub: 'invalid'}"#) // Single quotes, no quotes on key
+        .arg("--secret")
+        .arg("test-secret")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Failed to parse payload JSON"))
+        .stderr(predicate::str::contains("double quotes"));
+}
+
+#[test]
+fn test_encode_invalid_inline_header_json() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("encode")
+        .arg("-p")
+        .arg(r#"{"sub":"valid"}"#)
+        .arg("--header")
+        .arg(r#"{invalid json}"#)
+        .arg("--secret")
+        .arg("test-secret")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Failed to parse header JSON"))
+        .stderr(predicate::str::contains("double quotes"));
+}
+
+#[test]
+fn test_encode_inline_roundtrip_decode() {
+    // Encode with inline payload
+    let mut encode_cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    let output = encode_cmd
+        .arg("encode")
+        .arg("-p")
+        .arg(r#"{"sub":"roundtrip-user","role":"admin"}"#)
+        .arg("--secret")
+        .arg("roundtrip-secret")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let token = String::from_utf8(output.stdout).unwrap();
+    let token = token.trim();
+
+    // Decode the token
+    let mut decode_cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    decode_cmd
+        .arg("decode")
+        .arg(token)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("roundtrip-user"))
+        .stdout(predicate::str::contains("admin"));
+}
+
+#[test]
+fn test_encode_inline_roundtrip_validate() {
+    // Encode with inline payload
+    let mut encode_cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    let output = encode_cmd
+        .arg("encode")
+        .arg("-p")
+        .arg(r#"{"sub":"validate-test"}"#)
+        .arg("-s")
+        .arg("validate-secret")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let token = String::from_utf8(output.stdout).unwrap();
+    let token = token.trim();
+
+    // Validate the token
+    let mut validate_cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    validate_cmd
+        .arg("validate")
+        .arg("--secret")
+        .arg("validate-secret")
+        .arg(token)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("VALID"));
+}
+
+#[test]
+fn test_encode_inline_special_characters() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("encode")
+        .arg("-p")
+        .arg(r#"{"name":"Alice O'Brien","email":"alice@example.com","note":"Special: !@#$%"}"#)
+        .arg("--secret")
+        .arg("special-secret")
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_encode_inline_nested_json() {
+    let mut cmd = Command::new(assert_cmd::cargo::cargo_bin!("jetta"));
+    cmd.arg("encode")
+        .arg("-p")
+        .arg(r#"{"user":{"id":123,"name":"Bob"},"permissions":["read","write"]}"#)
+        .arg("--secret")
+        .arg("nested-secret")
+        .assert()
+        .success();
+}

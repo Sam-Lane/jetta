@@ -126,20 +126,20 @@ jetta validate $TOKEN
 ### Encode a New JWT
 
 ```bash
-# Create a token with HMAC secret (algorithm auto-detected as HS256)
+# Create a token with inline payload (quick testing)
+jetta encode -p '{"sub":"user123","name":"Alice"}' --secret "your-secret-key"
+
+# Add custom header inline
+jetta encode -p '{"sub":"user123"}' --header '{"kid":"key-1"}' --secret "key"
+
+# Use payload from file for complex claims
 jetta encode --payload-file claims.json --secret "your-secret-key"
 
 # Create with RSA private key (algorithm auto-detected as RS256)
-jetta encode --payload-file claims.json --private-key private.pem
-
-# Override algorithm explicitly
-jetta encode --payload-file claims.json --secret "key" --algorithm HS512
-
-# Use custom header
-jetta encode --payload-file claims.json --header-file header.json --secret "key"
+jetta encode -p '{"sub":"user123"}' --private-key private.pem
 
 # JSON output with metadata
-jetta encode --payload-file claims.json --secret "key" --format json
+jetta encode -p '{"sub":"user123"}' --secret "key" --format json
 ```
 
 ## Usage
@@ -236,17 +236,25 @@ echo $TOKEN | jetta validate --secret "my-secret" -
 Encode and sign a new JWT token with automatic algorithm detection and smart defaults.
 
 ```bash
-jetta encode --payload-file <FILE> [OPTIONS]
+# Inline payload (quick testing)
+jetta encode -p '{"sub":"user123"}' --secret "key"
+
+# File-based payload (complex claims)
+jetta encode --payload-file <FILE> --secret "key"
 ```
 
 **Options:**
-- `-p, --payload-file <FILE>` - Payload JSON file (required)
-- `--header-file <FILE>` - Custom header JSON file (optional, smart defaults generated)
+- `-p, --payload <JSON>` - Inline payload JSON string (conflicts with `--payload-file`)
+- `--payload-file <FILE>` - Payload JSON file (conflicts with `--payload`)
+- `--header <JSON>` - Inline header JSON string (optional, conflicts with `--header-file`)
+- `--header-file <FILE>` - Custom header JSON file (optional, conflicts with `--header`)
 - `-s, --secret <SECRET>` - Secret key for HMAC algorithms
 - `--secret-file <FILE>` - Read secret from file
 - `-k, --private-key <FILE>` - Private key file in PEM format (for RSA/ECDSA/EdDSA)
 - `-a, --algorithm <ALG>` - Explicitly specify signing algorithm (auto-detected if not provided)
 - `-o, --format <FORMAT>` - Output format: `human` (raw token, default) or `json` (with metadata)
+
+**Note:** At least one payload source (`--payload` or `--payload-file`) is required.
 
 **Algorithm Auto-Detection:**
 - HMAC secret → defaults to HS256
@@ -262,42 +270,46 @@ jetta encode --payload-file <FILE> [OPTIONS]
 
 **Examples:**
 ```bash
-# Create payload file
-echo '{"sub": "user123", "name": "Alice", "admin": true}' > payload.json
-
-# Basic encoding with HMAC (HS256 auto-detected)
-jetta encode --payload-file payload.json --secret "my-secret-key"
+# Quick testing with inline payload
+jetta encode -p '{"sub":"user123","name":"Alice","admin":true}' --secret "my-secret-key"
 # Output: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
+# Inline payload with custom header
+jetta encode -p '{"sub":"user123"}' --header '{"kid":"key-2024-01"}' --secret "key"
+
+# Complex claims from file
+echo '{"sub": "user123", "name": "Alice", "admin": true}' > payload.json
+jetta encode --payload-file payload.json --secret "my-secret-key"
+
 # Use HS512 explicitly
-jetta encode --payload-file payload.json --secret "key" --algorithm HS512
+jetta encode -p '{"sub":"user123"}' --secret "key" --algorithm HS512
 
 # Encode with RSA private key (RS256 auto-detected)
-jetta encode --payload-file payload.json --private-key rsa-private.pem
+jetta encode -p '{"sub":"user123"}' --private-key rsa-private.pem
 
 # Use secret from file
-jetta encode --payload-file payload.json --secret-file secret.txt
+jetta encode -p '{"sub":"user123"}' --secret-file secret.txt
 
-# Custom header with key ID
+# Mixed mode: inline payload with header file
 echo '{"typ": "JWT", "kid": "key-2024-01"}' > header.json
-jetta encode --payload-file payload.json --header-file header.json --secret "key"
+jetta encode -p '{"sub":"user123"}' --header-file header.json --secret "key"
 
 # JSON output with metadata
-jetta encode --payload-file payload.json --secret "key" --format json
+jetta encode -p '{"sub":"user123"}' --secret "key" --format json
 # Output:
 # {
 #   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
 #   "header": {"alg": "HS256", "typ": "JWT"},
-#   "payload": {"sub": "user123", "name": "Alice", "admin": true},
+#   "payload": {"sub": "user123"},
 #   "algorithm": "HS256"
 # }
 
 # Use environment variable
 export JETTA_SECRET="my-secret"
-jetta encode --payload-file payload.json
+jetta encode -p '{"sub":"user123"}'
 
 # Round-trip: encode then validate
-TOKEN=$(jetta encode --payload-file payload.json --secret "key")
+TOKEN=$(jetta encode -p '{"sub":"user123"}' --secret "key")
 jetta validate --secret "key" $TOKEN
 ```
 
