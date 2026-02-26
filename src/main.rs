@@ -72,6 +72,8 @@ enum CliOutputFormat {
     Human,
     /// JSON output
     Json,
+    /// Table output
+    Table,
 }
 
 impl From<CliOutputFormat> for OutputFormat {
@@ -79,6 +81,7 @@ impl From<CliOutputFormat> for OutputFormat {
         match format {
             CliOutputFormat::Human => OutputFormat::HumanReadable,
             CliOutputFormat::Json => OutputFormat::Json,
+            CliOutputFormat::Table => OutputFormat::Table,
         }
     }
 }
@@ -219,6 +222,10 @@ mod tests {
         assert!(matches!(
             OutputFormat::from(CliOutputFormat::Json),
             OutputFormat::Json
+        ));
+        assert!(matches!(
+            OutputFormat::from(CliOutputFormat::Table),
+            OutputFormat::Table
         ));
     }
 }

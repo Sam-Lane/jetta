@@ -4,12 +4,17 @@ use chrono::{DateTime, Utc};
 use colored::Colorize;
 use serde_json::Value;
 use std::collections::HashMap;
+use tabled::{
+    builder::Builder,
+    settings::{object::Rows, Alignment, Modify, Span, Style},
+};
 
 /// Format a decoded JWT token according to the specified output format
 pub fn format_decoded_token(token: &DecodedToken, format: OutputFormat) -> Result<String> {
     match format {
         OutputFormat::HumanReadable => format_decoded_human_readable(token),
         OutputFormat::Json => format_decoded_json(token),
+        OutputFormat::Table => format_decoded_table(token),
     }
 }
 
@@ -18,6 +23,7 @@ pub fn format_validation_result(result: &ValidationResult, format: OutputFormat)
     match format {
         OutputFormat::HumanReadable => format_validation_human_readable(result),
         OutputFormat::Json => format_validation_json(result),
+        OutputFormat::Table => format_validation_table(result),
     }
 }
 
@@ -329,6 +335,199 @@ fn format_json_value(value: &Value) -> String {
     }
 }
 
+/// Format a decoded token as a table
+fn format_decoded_table(token: &DecodedToken) -> Result<String> {
+    let mut builder = Builder::default();
+
+    // Add Header section
+    builder.push_record(vec!["Header".bold().to_string(), String::new()]);
+    builder.push_record(vec!["Field", "Value"]);
+    add_json_object_rows(&mut builder, &token.header);
+
+    // Add Payload section
+    builder.push_record(vec!["Payload".bold().to_string(), String::new()]);
+    builder.push_record(vec!["Field", "Value"]);
+    add_json_object_rows(&mut builder, &token.payload);
+
+    // Add Signature section
+    builder.push_record(vec!["Signature".bold().to_string(), String::new()]);
+    builder.push_record(vec!["Field", "Value"]);
+    builder.push_record(vec!["Algorithm", &token.analysis.algorithm]);
+    builder.push_record(vec![
+        "Has Signature",
+        if token.analysis.has_signature {
+            "YES"
+        } else {
+            "NO"
+        },
+    ]);
+
+    let mut table = builder.build();
+
+    // Apply modern style
+    table.with(Style::modern());
+
+    // Span and center section headers (span across 2 columns)
+    // Header is at row 0
+    table
+        .with(Modify::new(Rows::single(0)).with(Span::column(2)))
+        .with(Modify::new(Rows::single(0)).with(Alignment::center()));
+
+    // Find payload section row (depends on header row count)
+    let header_row_count = if let Value::Object(map) = &token.header {
+        map.len()
+    } else {
+        0
+    };
+    let payload_header_row = 2 + header_row_count; // "Header" + "Field|Value" + header rows
+    table
+        .with(Modify::new(Rows::single(payload_header_row)).with(Span::column(2)))
+        .with(Modify::new(Rows::single(payload_header_row)).with(Alignment::center()));
+
+    // Find signature section row
+    let payload_row_count = if let Value::Object(map) = &token.payload {
+        map.len()
+    } else {
+        0
+    };
+    let signature_header_row = payload_header_row + 2 + payload_row_count; // Payload header + "Field|Value" + payload rows
+    table
+        .with(Modify::new(Rows::single(signature_header_row)).with(Span::column(2)))
+        .with(Modify::new(Rows::single(signature_header_row)).with(Alignment::center()));
+
+    Ok(table.to_string())
+}
+
+/// Format validation result as a table
+fn format_validation_table(result: &ValidationResult) -> Result<String> {
+    let mut builder = Builder::default();
+
+    // Add Validation section first
+    builder.push_record(vec!["Validation".bold().to_string(), String::new()]);
+    builder.push_record(vec!["Field", "Value"]);
+    builder.push_record(vec![
+        "Status",
+        if result.valid {
+            "VALID".green().to_string()
+        } else {
+            "INVALID".red().to_string()
+        }
+        .as_str(),
+    ]);
+    if let Some(error) = &result.error {
+        builder.push_record(vec!["Error", error]);
+    }
+
+    // Add Header section
+    builder.push_record(vec!["Header".bold().to_string(), String::new()]);
+    builder.push_record(vec!["Field", "Value"]);
+    add_json_object_rows(&mut builder, &result.token.header);
+
+    // Add Payload section
+    builder.push_record(vec!["Payload".bold().to_string(), String::new()]);
+    builder.push_record(vec!["Field", "Value"]);
+    add_json_object_rows(&mut builder, &result.token.payload);
+
+    // Add Signature section
+    builder.push_record(vec!["Signature".bold().to_string(), String::new()]);
+    builder.push_record(vec!["Field", "Value"]);
+    builder.push_record(vec!["Algorithm", &result.token.analysis.algorithm]);
+    builder.push_record(vec![
+        "Has Signature",
+        if result.token.analysis.has_signature {
+            "YES"
+        } else {
+            "NO"
+        },
+    ]);
+
+    let mut table = builder.build();
+
+    // Apply modern style
+    table.with(Style::modern());
+
+    // Span and center section headers (span across 2 columns)
+    // Validation is at row 0
+    table
+        .with(Modify::new(Rows::single(0)).with(Span::column(2)))
+        .with(Modify::new(Rows::single(0)).with(Alignment::center()));
+
+    // Find header section row
+    let validation_row_count = if result.error.is_some() { 2 } else { 1 }; // Status + optional Error
+    let header_section_row = 2 + validation_row_count; // "Validation" + "Field|Value" + validation rows
+    table
+        .with(Modify::new(Rows::single(header_section_row)).with(Span::column(2)))
+        .with(Modify::new(Rows::single(header_section_row)).with(Alignment::center()));
+
+    // Find payload section row
+    let header_row_count = if let Value::Object(map) = &result.token.header {
+        map.len()
+    } else {
+        0
+    };
+    let payload_section_row = header_section_row + 2 + header_row_count; // Header section + "Field|Value" + header rows
+    table
+        .with(Modify::new(Rows::single(payload_section_row)).with(Span::column(2)))
+        .with(Modify::new(Rows::single(payload_section_row)).with(Alignment::center()));
+
+    // Find signature section row
+    let payload_row_count = if let Value::Object(map) = &result.token.payload {
+        map.len()
+    } else {
+        0
+    };
+    let signature_section_row = payload_section_row + 2 + payload_row_count; // Payload section + "Field|Value" + payload rows
+    table
+        .with(Modify::new(Rows::single(signature_section_row)).with(Span::column(2)))
+        .with(Modify::new(Rows::single(signature_section_row)).with(Alignment::center()));
+
+    Ok(table.to_string())
+}
+
+/// Helper function to add JSON object rows to table builder
+fn add_json_object_rows(builder: &mut Builder, value: &Value) {
+    if let Value::Object(map) = value {
+        for (key, val) in map.iter() {
+            let formatted_value = format_table_value(key, val);
+            builder.push_record(vec![key.as_str(), &formatted_value]);
+        }
+    }
+}
+
+/// Format a value for table display
+fn format_table_value(field_name: &str, value: &Value) -> String {
+    // Special handling for timestamp fields
+    if matches!(field_name, "exp" | "iat" | "nbf") {
+        if let Some(timestamp) = value.as_i64() {
+            if let Some(dt) = DateTime::<Utc>::from_timestamp(timestamp, 0) {
+                let formatted = dt.format("%Y-%m-%d %H:%M:%S UTC").to_string();
+                return format!("{} ({})", timestamp, formatted);
+            }
+        }
+    }
+
+    // Format based on value type
+    match value {
+        Value::String(s) => truncate_string(s.clone(), 100),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Array(_) | Value::Object(_) => {
+            let json_str = serde_json::to_string(value).unwrap_or_else(|_| "{}".to_string());
+            truncate_string(json_str, 100)
+        }
+        Value::Null => "null".to_string(),
+    }
+}
+
+/// Truncate a string to a maximum length with ellipsis
+fn truncate_string(s: String, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s
+    } else {
+        format!("{}...", &s[..max_len.saturating_sub(3)])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -479,5 +678,113 @@ mod tests {
         assert_eq!(format_duration(31536000), "1 year");
         assert_eq!(format_duration(63673860), "2 years");
         assert_eq!(format_duration(315360000), "10 years");
+    }
+
+    #[test]
+    fn test_format_decoded_table() {
+        let token = create_test_token();
+        let output = format_decoded_table(&token).unwrap();
+
+        // Verify table structure
+        assert!(output.contains("Header"));
+        assert!(output.contains("Payload"));
+        assert!(output.contains("Signature"));
+        assert!(output.contains("HS256"));
+        assert!(output.contains("John Doe"));
+        assert!(output.contains("1234567890"));
+        assert!(output.contains("Algorithm"));
+        assert!(output.contains("Has Signature"));
+        assert!(output.contains("YES"));
+
+        // Verify Unicode box-drawing characters
+        assert!(output.contains("┌"));
+        assert!(output.contains("│"));
+        assert!(output.contains("└"));
+    }
+
+    #[test]
+    fn test_format_validation_table() {
+        let token = create_test_token();
+        let result = ValidationResult {
+            valid: true,
+            error: None,
+            token,
+        };
+
+        let output = format_validation_table(&result).unwrap();
+
+        // Verify table structure
+        assert!(output.contains("Validation"));
+        assert!(output.contains("VALID"));
+        assert!(output.contains("Header"));
+        assert!(output.contains("Payload"));
+        assert!(output.contains("Signature"));
+
+        // Verify Unicode box-drawing characters
+        assert!(output.contains("┌"));
+        assert!(output.contains("│"));
+        assert!(output.contains("└"));
+    }
+
+    #[test]
+    fn test_format_validation_table_invalid() {
+        let token = create_test_token();
+        let result = ValidationResult {
+            valid: false,
+            error: Some("Invalid signature".to_string()),
+            token,
+        };
+
+        let output = format_validation_table(&result).unwrap();
+
+        // Verify table shows error
+        assert!(output.contains("INVALID"));
+        assert!(output.contains("Invalid signature"));
+        assert!(output.contains("Validation"));
+    }
+
+    #[test]
+    fn test_format_table_value_timestamp() {
+        let value = json!(1516239022);
+        let formatted = format_table_value("exp", &value);
+        assert!(formatted.contains("1516239022"));
+        assert!(formatted.contains("2018-01-18"));
+    }
+
+    #[test]
+    fn test_format_table_value_string() {
+        let value = json!("test string");
+        let formatted = format_table_value("name", &value);
+        assert_eq!(formatted, "test string");
+    }
+
+    #[test]
+    fn test_format_table_value_array() {
+        let value = json!(["admin", "user", "editor"]);
+        let formatted = format_table_value("roles", &value);
+        assert!(formatted.contains("admin"));
+        assert!(formatted.contains("user"));
+        assert!(formatted.contains("editor"));
+    }
+
+    #[test]
+    fn test_format_table_value_object() {
+        let value = json!({"org": "acme", "dept": "eng"});
+        let formatted = format_table_value("metadata", &value);
+        assert!(formatted.contains("org"));
+        assert!(formatted.contains("acme"));
+        assert!(formatted.contains("dept"));
+        assert!(formatted.contains("eng"));
+    }
+
+    #[test]
+    fn test_truncate_string() {
+        let short = "short".to_string();
+        assert_eq!(truncate_string(short.clone(), 100), short);
+
+        let long = "a".repeat(150);
+        let truncated = truncate_string(long, 100);
+        assert_eq!(truncated.len(), 100);
+        assert!(truncated.ends_with("..."));
     }
 }

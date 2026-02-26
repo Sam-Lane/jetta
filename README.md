@@ -11,7 +11,7 @@ A fast, secure JWT (JSON Web Token) CLI tool for decoding and validating tokens.
 - **Validate signatures** with cryptographic verification
 - **All major algorithms supported**: HMAC (HS256/384/512), RSA (RS256/384/512, PS256/384/512), ECDSA (ES256/384), EdDSA
 - **Multiple input methods**: CLI argument, file, or stdin
-- **Multiple output formats**: Human-readable (colorful) or JSON
+- **Multiple output formats**: Human-readable (colorful), structured table, or JSON
 - **Multiple key sources**: Direct input, file, or environment variable
 
 ## Installation
@@ -156,7 +156,7 @@ jetta decode <TOKEN> [OPTIONS]
 
 **Options:**
 - `-f, --file <FILE>` - Read token from file (takes precedence over TOKEN argument)
-- `-o, --format <FORMAT>` - Output format: `human` (default) or `json`
+- `-o, --format <FORMAT>` - Output format: `human` (default), `table`, or `json`
 
 **Examples:**
 ```bash
@@ -189,7 +189,7 @@ jetta validate <TOKEN> [OPTIONS]
 - `-s, --secret <SECRET>` - Secret key for HMAC algorithms
 - `--secret-file <FILE>` - Read secret from file
 - `-k, --public-key <FILE>` - Public key file in PEM format (for RSA/ECDSA/EdDSA)
-- `-o, --format <FORMAT>` - Output format: `human` (default) or `json`
+- `-o, --format <FORMAT>` - Output format: `human` (default), `table`, or `json`
 - `-f, --file <FILE>` - Read token from file (takes precedence over TOKEN argument)
 
 **Examples:**
@@ -259,6 +259,40 @@ Colorful, formatted output perfect for interactive use:
   Has Signature: YES
 ```
 
+### Table
+
+Structured table format with Unicode box-drawing characters:
+
+```
+┌───────────┬──────────────────────────────────────────────┐
+│           Header                                          │
+├───────────┼──────────────────────────────────────────────┤
+│ alg       │ HS256                                        │
+│ typ       │ JWT                                          │
+├───────────┼──────────────────────────────────────────────┤
+│           Payload                                         │
+├───────────┼──────────────────────────────────────────────┤
+│ sub       │ 1234567890                                   │
+│ name      │ John Doe                                     │
+│ iat       │ 1516239022 (2018-01-18 01:30:22 UTC)        │
+├───────────┼──────────────────────────────────────────────┤
+│           Signature                                       │
+├───────────┼──────────────────────────────────────────────┤
+│ value     │ SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c  │
+├───────────┼──────────────────────────────────────────────┤
+│           Validation                                      │
+├───────────┼──────────────────────────────────────────────┤
+│ status    │ VALID                                        │
+│ algorithm │ HS256                                        │
+└───────────┴──────────────────────────────────────────────┘
+```
+
+Features:
+- Section headers (Header, Payload, Signature, Validation) centered and spanning both columns
+- Timestamps shown in both Unix and human-readable formats
+- Complex values (arrays, objects) displayed as compact JSON
+- Long values automatically truncated to 100 characters with `...` ellipsis
+
 ### JSON
 
 Machine-readable output for scripting and automation:
@@ -288,9 +322,16 @@ Machine-readable output for scripting and automation:
 
 ## Examples
 
-### Decode and extract specific claim
+### Decode with different formats
 
 ```bash
+# Human-readable (default, colorful)
+jetta decode $TOKEN
+
+# Structured table
+jetta decode --format table $TOKEN
+
+# JSON for scripting
 jetta decode --format json $TOKEN | jq -r '.payload.email'
 ```
 

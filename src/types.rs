@@ -36,4 +36,5 @@ pub struct ValidationResult {
 pub enum OutputFormat {
     HumanReadable,
     Json,
+    Table,
 }
