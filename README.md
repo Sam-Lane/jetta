@@ -9,6 +9,7 @@ A fast, secure JWT (JSON Web Token) CLI tool for decoding and validating tokens.
 
 - **Decode JWTs** without requiring secrets - inspect headers and payloads instantly
 - **Validate signatures** with cryptographic verification
+- **Encode new JWTs** with automatic algorithm detection and smart defaults
 - **All major algorithms supported**: HMAC (HS256/384/512), RSA (RS256/384/512, PS256/384/512), ECDSA (ES256/384), EdDSA
 - **Multiple input methods**: CLI argument, file, or stdin
 - **Multiple output formats**: Human-readable (colorful), structured table, or JSON
@@ -122,6 +123,25 @@ export JETTA_SECRET="your-secret-key"
 jetta validate $TOKEN
 ```
 
+### Encode a New JWT
+
+```bash
+# Create a token with inline payload (quick testing)
+jetta encode -p '{"sub":"user123","name":"Alice"}' --secret "your-secret-key"
+
+# Add custom header inline
+jetta encode -p '{"sub":"user123"}' --header '{"kid":"key-1"}' --secret "key"
+
+# Use payload from file for complex claims
+jetta encode --payload-file claims.json --secret "your-secret-key"
+
+# Create with RSA private key (algorithm auto-detected as RS256)
+jetta encode -p '{"sub":"user123"}' --private-key private.pem
+
+# JSON output with metadata
+jetta encode -p '{"sub":"user123"}' --secret "key" --format json
+```
+
 ## Usage
 
 ### Interactive Mode
@@ -211,30 +231,129 @@ jetta validate --secret "my-secret" --format json $TOKEN
 echo $TOKEN | jetta validate --secret "my-secret" -
 ```
 
+#### `encode` - Create and sign a new JWT
+
+Encode and sign a new JWT token with automatic algorithm detection and smart defaults.
+
+```bash
+# Inline payload (quick testing)
+jetta encode -p '{"sub":"user123"}' --secret "key"
+
+# File-based payload (complex claims)
+jetta encode --payload-file <FILE> --secret "key"
+```
+
+**Options:**
+- `-p, --payload <JSON>` - Inline payload JSON string (conflicts with `--payload-file`)
+- `--payload-file <FILE>` - Payload JSON file (conflicts with `--payload`)
+- `--header <JSON>` - Inline header JSON string (optional, conflicts with `--header-file`)
+- `--header-file <FILE>` - Custom header JSON file (optional, conflicts with `--header`)
+- `-s, --secret <SECRET>` - Secret key for HMAC algorithms
+- `--secret-file <FILE>` - Read secret from file
+- `-k, --private-key <FILE>` - Private key file in PEM format (for RSA/ECDSA/EdDSA)
+- `-a, --algorithm <ALG>` - Explicitly specify signing algorithm (auto-detected if not provided)
+- `-o, --format <FORMAT>` - Output format: `human` (raw token, default) or `json` (with metadata)
+
+**Note:** At least one payload source (`--payload` or `--payload-file`) is required.
+
+**Algorithm Auto-Detection:**
+- HMAC secret → defaults to HS256
+- RSA private key → defaults to RS256
+- EC private key → defaults to ES256
+- EdDSA key → defaults to EdDSA
+- Use `--algorithm` to override (e.g., HS512, RS384, ES384)
+
+**Header Generation:**
+- If `--header-file` not provided: generates `{"alg": "<detected>", "typ": "JWT"}`
+- If `--header-file` provided: uses custom header but always overrides `alg` for safety
+- Standard JWT header fields supported: `typ`, `kid`, `cty`, `jku`, `x5u`
+
+**Examples:**
+```bash
+# Quick testing with inline payload
+jetta encode -p '{"sub":"user123","name":"Alice","admin":true}' --secret "my-secret-key"
+# Output: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# Inline payload with custom header
+jetta encode -p '{"sub":"user123"}' --header '{"kid":"key-2024-01"}' --secret "key"
+
+# Complex claims from file
+echo '{"sub": "user123", "name": "Alice", "admin": true}' > payload.json
+jetta encode --payload-file payload.json --secret "my-secret-key"
+
+# Use HS512 explicitly
+jetta encode -p '{"sub":"user123"}' --secret "key" --algorithm HS512
+
+# Encode with RSA private key (RS256 auto-detected)
+jetta encode -p '{"sub":"user123"}' --private-key rsa-private.pem
+
+# Use secret from file
+jetta encode -p '{"sub":"user123"}' --secret-file secret.txt
+
+# Mixed mode: inline payload with header file
+echo '{"typ": "JWT", "kid": "key-2024-01"}' > header.json
+jetta encode -p '{"sub":"user123"}' --header-file header.json --secret "key"
+
+# JSON output with metadata
+jetta encode -p '{"sub":"user123"}' --secret "key" --format json
+# Output:
+# {
+#   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "header": {"alg": "HS256", "typ": "JWT"},
+#   "payload": {"sub": "user123"},
+#   "algorithm": "HS256"
+# }
+
+# Use environment variable
+export JETTA_SECRET="my-secret"
+jetta encode -p '{"sub":"user123"}'
+
+# Round-trip: encode then validate
+TOKEN=$(jetta encode -p '{"sub":"user123"}' --secret "key")
+jetta validate --secret "key" $TOKEN
+```
+
 ## Algorithm Support
 
-| Algorithm | Type | Secret/Key Format |
-|-----------|------|-------------------|
-| HS256 | HMAC | String or file |
-| HS384 | HMAC | String or file |
-| HS512 | HMAC | String or file |
-| RS256 | RSA | PEM public key |
-| RS384 | RSA | PEM public key |
-| RS512 | RSA | PEM public key |
-| PS256 | RSA-PSS | PEM public key |
-| PS384 | RSA-PSS | PEM public key |
-| PS512 | RSA-PSS | PEM public key |
-| ES256 | ECDSA | PEM public key (PKCS8) |
-| ES384 | ECDSA | PEM public key (PKCS8) |
-| EdDSA | EdDSA | PEM public key |
+| Algorithm | Type | Validation Key | Encoding Key |
+|-----------|------|----------------|--------------|
+| HS256 | HMAC | String or file | String or file |
+| HS384 | HMAC | String or file | String or file |
+| HS512 | HMAC | String or file | String or file |
+| RS256 | RSA | PEM public key | PEM private key |
+| RS384 | RSA | PEM public key | PEM private key |
+| RS512 | RSA | PEM public key | PEM private key |
+| PS256 | RSA-PSS | PEM public key | PEM private key |
+| PS384 | RSA-PSS | PEM public key | PEM private key |
+| PS512 | RSA-PSS | PEM public key | PEM private key |
+| ES256 | ECDSA | PEM public key (PKCS8) | PEM private key |
+| ES384 | ECDSA | PEM public key (PKCS8) | PEM private key |
+| EdDSA | EdDSA | PEM public key | PEM private key |
 
 ### Key Format Notes
 
-- **HMAC (HS*)**: Use raw secret string or text file
-- **RSA (RS*, PS*)**: Use PEM-encoded RSA public key
-- **ECDSA (ES*)**: Use PEM-encoded EC public key in PKCS8 format
+- **HMAC (HS*)**: Use raw secret string or text file (for both validation and encoding)
+- **RSA (RS*, PS*)**: 
+  - Validation: PEM-encoded RSA public key
+  - Encoding: PEM-encoded RSA private key
+- **ECDSA (ES*)**: 
+  - Validation: PEM-encoded EC public key in PKCS8 format
+  - Encoding: PEM-encoded EC private key
   - To convert SEC1 to PKCS8: `openssl pkeyutl -pubin -in ec-sec1.pem -out ec-pkcs8.pem`
-- **EdDSA**: Use PEM-encoded EdDSA public key
+- **EdDSA**: 
+  - Validation: PEM-encoded EdDSA public key
+  - Encoding: PEM-encoded EdDSA private key
+
+### Algorithm Auto-Detection (Encode)
+
+When using `encode` without `--algorithm`, Jetta automatically detects the appropriate algorithm:
+
+| Key Type | Default Algorithm | Override Options |
+|----------|------------------|------------------|
+| HMAC secret (`--secret`) | HS256 | HS384, HS512 |
+| RSA private key | RS256 | RS384, RS512, PS256, PS384, PS512 |
+| EC private key | ES256 | ES384 |
+| EdDSA key | EdDSA | (none) |
 
 ## Output Formats
 
@@ -321,6 +440,42 @@ Machine-readable output for scripting and automation:
 - `JETTA_SECRET` - Default secret for HMAC validation (fallback if no --secret provided)
 
 ## Examples
+
+### Create and use test tokens
+
+```bash
+# Create a test token
+echo '{"sub": "testuser", "exp": 1735689600}' > test-payload.json
+TOKEN=$(jetta encode --payload-file test-payload.json --secret "test-secret")
+
+# Decode it
+jetta decode $TOKEN
+
+# Validate it
+jetta validate --secret "test-secret" $TOKEN
+```
+
+### Automation workflow - generate tokens for testing
+
+```bash
+#!/bin/bash
+# generate-test-tokens.sh
+
+# Create different test scenarios
+echo '{"sub": "admin", "role": "admin"}' > admin.json
+echo '{"sub": "user", "role": "user"}' > user.json
+echo '{"sub": "guest"}' > guest.json
+
+# Generate tokens
+ADMIN_TOKEN=$(jetta encode --payload-file admin.json --secret "$SECRET")
+USER_TOKEN=$(jetta encode --payload-file user.json --secret "$SECRET")
+GUEST_TOKEN=$(jetta encode --payload-file guest.json --secret "$SECRET")
+
+# Use them in API tests
+curl -H "Authorization: Bearer $ADMIN_TOKEN" https://api.example.com/admin
+curl -H "Authorization: Bearer $USER_TOKEN" https://api.example.com/user
+curl -H "Authorization: Bearer $GUEST_TOKEN" https://api.example.com/guest
+```
 
 ### Decode with different formats
 
@@ -428,7 +583,8 @@ src/
 ├── main.rs       # CLI entry point and argument parsing
 ├── decode.rs     # JWT decoding logic
 ├── validate.rs   # Signature validation
-├── output.rs     # Output formatting (human/JSON)
+├── encode.rs     # JWT encoding and signing
+├── output.rs     # Output formatting (human/JSON/table)
 ├── animation.rs  # Welcome animation logic
 └── types.rs      # Shared data structures
 ```

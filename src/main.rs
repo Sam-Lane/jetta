@@ -1,5 +1,6 @@
 mod animation;
 mod decode;
+mod encode;
 mod output;
 mod types;
 mod validate;
@@ -59,6 +60,45 @@ enum Commands {
         /// Public key file for RSA/ECDSA/EdDSA algorithms (PEM format)
         #[arg(short = 'k', long, conflicts_with_all = ["secret", "secret_file"])]
         public_key: Option<PathBuf>,
+
+        /// Output format
+        #[arg(short = 'o', long, value_enum, default_value = "human")]
+        format: CliOutputFormat,
+    },
+
+    /// Encode and sign a new JWT token
+    Encode {
+        /// Inline payload JSON string
+        #[arg(short = 'p', long, conflicts_with = "payload_file")]
+        payload: Option<String>,
+
+        /// Payload JSON file
+        #[arg(long, conflicts_with = "payload")]
+        payload_file: Option<PathBuf>,
+
+        /// Inline header JSON string (optional, defaults will be generated)
+        #[arg(long, conflicts_with = "header_file")]
+        header: Option<String>,
+
+        /// Custom header JSON file (optional, defaults will be generated)
+        #[arg(long, conflicts_with = "header")]
+        header_file: Option<PathBuf>,
+
+        /// Secret key for HMAC algorithms (HS256, HS384, HS512)
+        #[arg(short = 's', long, conflicts_with_all = ["secret_file", "private_key"])]
+        secret: Option<String>,
+
+        /// Read secret key from file
+        #[arg(long, conflicts_with_all = ["secret", "private_key"])]
+        secret_file: Option<PathBuf>,
+
+        /// Private key file for RSA/ECDSA/EdDSA algorithms (PEM format)
+        #[arg(short = 'k', long, conflicts_with_all = ["secret", "secret_file"])]
+        private_key: Option<PathBuf>,
+
+        /// Explicitly specify the signing algorithm (auto-detected if not provided)
+        #[arg(short = 'a', long)]
+        algorithm: Option<String>,
 
         /// Output format
         #[arg(short = 'o', long, value_enum, default_value = "human")]
@@ -135,6 +175,104 @@ fn main() -> Result<()> {
             // Exit with error code if validation failed
             if !result.valid {
                 std::process::exit(1);
+            }
+        }
+
+        Some(Commands::Encode {
+            payload,
+            payload_file,
+            header,
+            header_file,
+            secret,
+            secret_file,
+            private_key,
+            algorithm,
+            format,
+        }) => {
+            // Parse payload from inline string or file (at least one required)
+            let payload_value: serde_json::Value = if let Some(payload_str) = payload {
+                serde_json::from_str(&payload_str).context(
+                    "Failed to parse payload JSON. Ensure valid JSON format with double quotes.",
+                )?
+            } else if let Some(payload_path) = payload_file {
+                let payload_content = fs::read_to_string(&payload_path)
+                    .context(format!("Failed to read payload file: {:?}", payload_path))?;
+                serde_json::from_str(&payload_content).context(
+                    "Failed to parse payload JSON. Ensure valid JSON format with double quotes.",
+                )?
+            } else {
+                anyhow::bail!("Payload required: provide --payload or --payload-file");
+            };
+
+            // Parse optional header from inline string or file
+            let header_value: Option<serde_json::Value> = if let Some(header_str) = header {
+                Some(serde_json::from_str(&header_str).context(
+                    "Failed to parse header JSON. Ensure valid JSON format with double quotes.",
+                )?)
+            } else if let Some(header_path) = header_file {
+                let header_content = fs::read_to_string(&header_path)
+                    .context(format!("Failed to read header file: {:?}", header_path))?;
+                Some(serde_json::from_str(&header_content).context(
+                    "Failed to parse header JSON. Ensure valid JSON format with double quotes.",
+                )?)
+            } else {
+                None
+            };
+
+            // Parse algorithm if provided
+            let alg = if let Some(alg_str) = algorithm {
+                Some(encode::parse_algorithm(&alg_str)?)
+            } else {
+                None
+            };
+
+            // Determine the signing key/secret
+            let (secret_val, key_val) = if let Some(secret_str) = secret {
+                (Some(secret_str), None)
+            } else if let Some(secret_path) = secret_file {
+                let secret_content = fs::read_to_string(&secret_path)
+                    .context(format!("Failed to read secret file: {:?}", secret_path))?;
+                (Some(secret_content), None)
+            } else if let Some(key_path) = private_key {
+                let key_content = fs::read_to_string(&key_path)
+                    .context(format!("Failed to read private key file: {:?}", key_path))?;
+                (None, Some(key_content))
+            } else {
+                // Try environment variable
+                if let Ok(env_secret) = std::env::var("JETTA_SECRET") {
+                    (Some(env_secret), None)
+                } else {
+                    anyhow::bail!("No secret or key provided. Use --secret, --secret-file, --private-key, or set JETTA_SECRET environment variable");
+                }
+            };
+
+            // Encode the token
+            let token = encode::encode_token(
+                header_value.as_ref(),
+                &payload_value,
+                secret_val.as_deref(),
+                key_val.as_deref(),
+                alg,
+            )
+            .context("Failed to encode JWT token")?;
+
+            // Output based on format
+            match format {
+                CliOutputFormat::Json => {
+                    // Decode the token to get header for JSON output
+                    let decoded = decode::decode_token(&token)?;
+                    let output = serde_json::json!({
+                        "token": token,
+                        "header": decoded.header,
+                        "payload": decoded.payload,
+                        "algorithm": decoded.analysis.algorithm,
+                    });
+                    println!("{}", serde_json::to_string_pretty(&output)?);
+                }
+                _ => {
+                    // Default: just output the raw token
+                    println!("{}", token);
+                }
             }
         }
 
