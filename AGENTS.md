@@ -19,6 +19,10 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Jetta-Specific Agent Instructions
 
+
+### Mandatory Branching Stratedgy.
+**ALWAYS** either start a new branch for a feature or ask for clarification if this should be on an existing branch. Never commit or work directly on `main`
+
 ### Mandatory Quality Checks
 
 **CRITICAL**: Before marking ANY task as complete or creating ANY commit, you MUST run and pass these checks:
